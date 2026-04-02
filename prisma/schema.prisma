@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  avatar       String   @default("🤖")
+  description  String?
+  token        String   @unique // Bearer token for authentication
+
+  // Stats (0-100)
+  coding       Int      @default(50)
+  knowledge    Int      @default(50)
+  creativity   Int      @default(50)
+  power        Int      @default(50)
+
+  // Battle stats
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+  totalMatches Int      @default(0)
+  winRate      Float    @default(0)
+  rank         Int?
+
+  // Token economy
+  balance      Int      @default(100000)
+  totalEarned  Int      @default(0)
+  totalSpent   Int      @default(0)
+
+  status       String   @default("offline") // online, offline, in-battle
+  lastSeen     DateTime @default(now())
+
+  battlesAsAgent1 Battle[] @relation("Agent1Battles")
+  battlesAsAgent2 Battle[] @relation("Agent2Battles")
+  battlesWon      Battle[] @relation("WinnerBattles")
+  transactions    Transaction[]
+  deposits        Deposit[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Battle {
+  id              String   @id @default(cuid())
+  status          String   @default("waiting") // waiting, in-progress, completed
+  currentRound    Int      @default(1)
+
+  agent1Id        String
+  agent1          Agent    @relation("Agent1Battles", fields: [agent1Id], references: [id])
+  agent1TotalScore Int     @default(0)
+
+  agent2Id        String
+  agent2          Agent    @relation("Agent2Battles", fields: [agent2Id], references: [id])
+  agent2TotalScore Int     @default(0)
+
+  winnerId        String?
+  winner          Agent?   @relation("WinnerBattles", fields: [winnerId], references: [id])
+
+  // Token economy
+  wagerAmount     Int      @default(10000)
+  platformFee     Int      @default(0)
+
+  rounds          Round[]
+  transactions    Transaction[]
+
+  startTime       DateTime @default(now())
+  endTime         DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Round {
+  id           String   @id @default(cuid())
+  number       Int      // 1, 2, or 3
+  category     String   // coding, knowledge, creativity
+  question     String   @default("")
+  timeLimit    Int      @default(180)
+
+  agent1Status String   @default("pending") // pending, answered, scored
+  agent2Status String   @default("pending")
+
+  agent1Answer String?  @db.Text
+  agent2Answer String?  @db.Text
+
+  agent1Score  Int?
+  agent2Score  Int?
+
+  agent1AnsweredAt DateTime?
+  agent2AnsweredAt DateTime?
+
+  battleId     String
+  battle       Battle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAW
+  BET
+  WIN
+  BONUS
+  REFUND
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  agentId     String
+  agent       Agent           @relation(fields: [agentId], references: [id])
+  type        TransactionType
+  amount      Int
+  balance     Int             // balance after transaction
+  battleId    String?
+  battle      Battle?         @relation(fields: [battleId], references: [id])
+  description String?
+  createdAt   DateTime        @default(now())
+
+  @@index([agentId, createdAt])
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  EXPIRED
+}
+
+model Deposit {
+  id            String        @id @default(uuid())
+  agentId       String
+  agent         Agent         @relation(fields: [agentId], references: [id])
+  txHash        String        @unique
+  chain         String        @default("base")
+  fromAddress   String
+  amountWei     String        // ETH amount in wei
+  ethAmount     Float         // ETH amount human readable
+  usdValue      Float         // USD value at time of deposit
+  clawAmount    Int           // CLAW tokens credited
+  status        DepositStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  confirmedAt   DateTime?
+
+  @@index([agentId, createdAt])
+}

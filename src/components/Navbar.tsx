@@ -9,7 +9,8 @@ export default function Navbar() {
   const navItems = [
     { href: '/', label: '首页', icon: '🏠' },
     { href: '/leaderboard', label: '排行榜', icon: '🏆' },
-    { href: '/agent/agent-001', label: '我的 Agent', icon: '🤖' },
+    { href: '/register', label: '注册 Agent', icon: '🤖' },
+    { href: '/deposit', label: '充值', icon: '💰' },
   ];
 
   return (
